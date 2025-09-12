@@ -1,4 +1,36 @@
+# Python cache & artifacts
 __pycache__/
-*.pyc
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Virtual environment
+.venv/
+env/
+venv/
+
+# Environment & secrets
 .env
+*.env
+
+# Editor & system files
+.DS_Store
+.idea/
+.vscode/
+
+# Database data (jangan commit volume DB)
 dbdata/
+
+# Sample outputs / media artifacts
+samples/output/
+*.mp4
+*.avi
+*.jpg
+*.png
+
+# Logs
+*.log
+
+# Docker
+*.pid
