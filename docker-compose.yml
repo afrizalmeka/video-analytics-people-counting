@@ -1,0 +1,37 @@
+version: "3.9"
+services:
+  db:
+    image: postgis/postgis:16-3.4   # Postgres + PostGIS (boleh ganti postgres:16 jika tak butuh PostGIS)
+    platform: linux/amd64      # 👈 tambahkan ini
+    container_name: people_counting_db
+    restart: unless-stopped
+    env_file: .env                   # pakai variabel yang sudah kamu buat: DB/USER/PASSWORD/PORT
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+      - ./db/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d:ro
+      - ./db/seed:/seed:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # api:
+  #   build: ./backend
+  #   container_name: pc_api
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #   environment:
+  #     - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+  #   ports:
+  #     - "8000:8000"
+
+volumes:
+  dbdata:
