@@ -10,10 +10,6 @@ __pycache__/
 env/
 venv/
 
-# Environment & secrets
-.env
-*.env
-
 # Editor & system files
 .DS_Store
 .idea/

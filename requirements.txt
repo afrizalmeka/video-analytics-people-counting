@@ -1,0 +1,8 @@
+ultralytics
+opencv-python
+numpy
+fastapi
+uvicorn
+python-dotenv
+shapely
+psycopg2-binary
