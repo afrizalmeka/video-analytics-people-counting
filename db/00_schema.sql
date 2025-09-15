@@ -1,4 +1,4 @@
--- 01_schema.sql (UPDATED)
+-- 00_schema.sql (UPDATED)
 -- Skema database untuk sistem People Counting
 
 BEGIN;

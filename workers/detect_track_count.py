@@ -310,7 +310,7 @@ def main():
         default=1)
     ap.add_argument("--area-id",
         type=int,
-        default=2)
+        default=1)
     ap.add_argument("--poly",
         default="",
         help="JSON list [[x_norm,y_norm],...] if not using DB")

@@ -31,6 +31,8 @@ services:
         condition: service_healthy
     ports:
       - "8080:8080"
+    volumes:
+      - latest_out:/app/samples/output
     command: >
       bash -lc "uvicorn app:app --host 0.0.0.0 --port 8080"
 
@@ -50,7 +52,9 @@ services:
         condition: service_started
     volumes:
       - ./:/app
-    command: ["python", "workers/detect_track_count.py"]
+      - latest_out:/app/samples/output
+    command: ["python", "workers/detect_track_count.py", "--db-log"]
 
 volumes:
   pgdata:
+  latest_out:
