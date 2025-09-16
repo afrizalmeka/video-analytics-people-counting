@@ -9,10 +9,12 @@ erDiagram
   STREAMS ||--o{ DETECTIONS : has
   STREAMS ||--o{ AREA_EVENTS : has
   STREAMS ||--o{ AREA_COUNTS : has
+  STREAMS ||--o{ AREA_LIVE : has
 
-  AREAS ||--o{ DETECTIONS : optional match
+  AREAS ||--o{ DETECTIONS : optional
   AREAS ||--o{ AREA_EVENTS : generates
   AREAS ||--o{ AREA_COUNTS : aggregates
+  AREAS ||--o{ AREA_LIVE : snapshot
 
   TRACKS ||--o{ DETECTIONS : explains
   TRACKS ||--o{ AREA_EVENTS : crosses
@@ -20,9 +22,9 @@ erDiagram
   STREAMS {
     int stream_id PK
     text name
-    text source_url
-    boolean is_active
+    text url
     timestamptz created_at
+    timestamptz updated_at
   }
 
   AREAS {
@@ -38,27 +40,20 @@ erDiagram
   TRACKS {
     bigint track_id PK
     int stream_id FK
-    text tracker_name
-    timestamptz first_seen
-    timestamptz last_seen
+    timestamptz created_at
   }
 
   DETECTIONS {
     bigint detection_id PK
     int stream_id FK
+    int area_id FK
     bigint track_id FK
     timestamptz ts
-    bigint frame_index
-    text class_label
-    real confidence
-    real bbox_x
-    real bbox_y
-    real bbox_w
-    real bbox_h
-    real centroid_x
-    real centroid_y
-    boolean inside_area
-    int area_id FK
+    int x1
+    int y1
+    int x2
+    int y2
+    real conf
   }
 
   AREA_EVENTS {
@@ -79,3 +74,11 @@ erDiagram
     int enters
     int exits
   }
+
+  AREA_LIVE {
+    int stream_id PK,FK
+    int area_id PK,FK
+    int current_inside
+    timestamptz updated_at
+  }
+```

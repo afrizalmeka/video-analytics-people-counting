@@ -90,18 +90,13 @@ class DBLogger:
             return
         try:
             cur = self.conn.cursor()
-            # Robust upsert dengan tracker_name default
             cur.execute(
                 """
-                INSERT INTO tracks (track_id, stream_id, tracker_name, first_seen, last_seen)
-                VALUES (%s, %s, %s, NOW(), NOW())
-                ON CONFLICT (track_id)
-                DO UPDATE SET
-                    last_seen    = EXCLUDED.last_seen,
-                    stream_id    = COALESCE(tracks.stream_id, EXCLUDED.stream_id),
-                    tracker_name = COALESCE(tracks.tracker_name, EXCLUDED.tracker_name)
+                INSERT INTO tracks (track_id, stream_id)
+                VALUES (%s, %s)
+                ON CONFLICT (track_id) DO NOTHING
                 """,
-                (int(track_id), int(stream_id), "centroid"),
+                (int(track_id), int(stream_id)),
             )
             cur.close()
         except Exception as e:
@@ -120,6 +115,8 @@ class DBLogger:
         if not self._ensure():
             return
         try:
+            direction_db = direction.upper()
+            dir_l = direction.lower()
             # Pastikan row di tracks ada agar FK tidak gagal
             self.ensure_track(stream_id, track_id)
             cur = self.conn.cursor()
@@ -129,7 +126,7 @@ class DBLogger:
                 INSERT INTO area_events (stream_id, area_id, track_id, ts, direction)
                 VALUES (%s, %s, %s, NOW(), %s)
                 """,
-                (stream_id, area_id, int(track_id), direction),
+                (stream_id, area_id, int(track_id), direction_db),
             )
 
             # 2) Upsert per-menit ke area_counts
@@ -139,7 +136,7 @@ class DBLogger:
             cur.execute("SELECT %s + interval '1 minute'", (win_start,))
             (win_end,) = cur.fetchone()
 
-            if direction == 'enter':
+            if dir_l == 'enter':
                 cur.execute(
                     """
                     INSERT INTO area_counts (stream_id, area_id, window_start, window_end, enters, exits)
@@ -149,7 +146,7 @@ class DBLogger:
                     """,
                     (stream_id, area_id, win_start, win_end),
                 )
-            elif direction == 'exit':
+            elif dir_l == 'exit':
                 cur.execute(
                     """
                     INSERT INTO area_counts (stream_id, area_id, window_start, window_end, enters, exits)

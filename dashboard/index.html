@@ -1,10 +1,290 @@
-<!doctype html><html><head>
-<meta charset="utf-8"><title>Live Viewer</title>
-<style>body{margin:0;background:#111;color:#eee;font-family:system-ui}
-.wrap{max-width:1100px;margin:20px auto;padding:10px}
-img{max-width:100%;border-radius:10px;display:block}</style>
-</head><body><div class="wrap">
-<h2>Live Viewer — Detection in Polygon</h2>
-<img id="viewer" src="/api/stream/mjpeg?stream_id=1" style="max-width:100%;display:block;" />
-<p>Tekan refresh browser bila stream tampak berhenti.</p>
-</div></body></html>
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Live Viewer</title>
+    <style>
+      body {
+        margin: 0;
+        background: #111;
+        color: #eee;
+        font-family: system-ui;
+      }
+      .wrap {
+        max-width: 1100px;
+        margin: 20px auto;
+        padding: 10px;
+      }
+      img {
+        max-width: 100%;
+        border-radius: 10px;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h2>Live Viewer — Detection in Polygon</h2>
+      <img
+        id="viewer"
+        src="/api/stream/mjpeg?stream_id=1"
+        style="max-width:100%;display:block;"
+      />
+      <p>Tekan refresh browser bila stream tampak berhenti.</p>
+      <div id="dashboard" style="margin-top:16px">
+        <div
+          id="kpi"
+          style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px"
+        >
+          <div
+            style="
+              background: #1d1d1d;
+              padding: 12px 14px;
+              border-radius: 8px;
+              min-width: 160px;
+            "
+          >
+            <div style="opacity: 0.7; font-size: 12px">Inside Now</div>
+            <div id="kpi-inside" style="font-size: 28px; font-weight: 700">–</div>
+            <div
+              id="kpi-updated"
+              style="opacity: 0.6; font-size: 12px; margin-top: 4px"
+            >
+              updated: –
+            </div>
+          </div>
+          <div
+            style="
+              background: #1d1d1d;
+              padding: 12px 14px;
+              border-radius: 8px;
+              min-width: 160px;
+            "
+          >
+            <div style="opacity: 0.7; font-size: 12px">Enters (15m)</div>
+            <div id="kpi-enters" style="font-size: 28px; font-weight: 700">–</div>
+          </div>
+          <div
+            style="
+              background: #1d1d1d;
+              padding: 12px 14px;
+              border-radius: 8px;
+              min-width: 160px;
+            "
+          >
+            <div style="opacity: 0.7; font-size: 12px">Exits (15m)</div>
+            <div id="kpi-exits" style="font-size: 28px; font-weight: 700">–</div>
+          </div>
+          <div
+            style="
+              background: #1d1d1d;
+              padding: 12px 14px;
+              border-radius: 8px;
+              min-width: 160px;
+            "
+          >
+            <div style="opacity: 0.7; font-size: 12px">Net Flow (15m)</div>
+            <div id="kpi-net" style="font-size: 28px; font-weight: 700">–</div>
+          </div>
+        </div>
+
+        <h3 style="margin: 12px 0 8px">Enter/Exit per Minute</h3>
+        <canvas id="eeChart" height="160"></canvas>
+
+        <h3 style="margin: 18px 0 8px">Recent Events</h3>
+        <table
+          id="events"
+          style="width: 100%; border-collapse: collapse; font-size: 14px"
+        >
+          <thead style="background: #1d1d1d">
+            <tr>
+              <th
+                style="text-align: left; padding: 8px; border-bottom: 1px solid #333"
+              >
+                Time
+              </th>
+              <th
+                style="text-align: left; padding: 8px; border-bottom: 1px solid #333"
+              >
+                Direction
+              </th>
+              <th
+                style="text-align: left; padding: 8px; border-bottom: 1px solid #333"
+              >
+                Track
+              </th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+      (function () {
+        const STREAM_ID = 1;
+        const AREA_ID = 1;
+        const LIVE_URL = `/api/stats/live?stream_id=${STREAM_ID}&area_id=${AREA_ID}`;
+        const EVENTS_URL = `/api/stats/?limit=400&stream_id=${STREAM_ID}&area_id=${AREA_ID}`;
+
+        const elInside = document.getElementById("kpi-inside");
+        const elUpdated = document.getElementById("kpi-updated");
+        const elEn = document.getElementById("kpi-enters");
+        const elEx = document.getElementById("kpi-exits");
+        const elNet = document.getElementById("kpi-net");
+
+        const tableBody = document.querySelector("#events tbody");
+
+        // Chart init
+        const ctx = document.getElementById("eeChart").getContext("2d");
+        const chart = new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels: [],
+            datasets: [
+              { label: "Enters", data: [], borderWidth: 1 },
+              { label: "Exits", data: [], borderWidth: 1 },
+            ],
+          },
+          options: {
+            responsive: true,
+            animation: false,
+            scales: {
+              x: { grid: { display: false } },
+              y: { beginAtZero: true },
+            },
+            plugins: { legend: { position: "top" } },
+          },
+        });
+
+        function fmtTime(ts) {
+          try {
+            return new Date(ts).toLocaleTimeString();
+          } catch (e) {
+            return ts;
+          }
+        }
+
+        async function fetchLive() {
+          try {
+            const r = await fetch(LIVE_URL);
+            const arr = await r.json();
+            if (Array.isArray(arr) && arr.length) {
+              const { current_inside, updated_at } = arr[0];
+              elInside.textContent = current_inside;
+              elUpdated.textContent = `updated: ${fmtTime(updated_at)}`;
+            }
+          } catch (e) {
+            console.warn("live error", e);
+          }
+        }
+
+        function groupPerMinute(events) {
+          // input: [{ts, direction}]
+          const now = Date.now();
+          // build last 60 minutes buckets
+          const mins = [];
+          const mapEn = new Map();
+          const mapEx = new Map();
+          for (let i = 59; i >= 0; i--) {
+            const d = new Date(now - i * 60 * 1000);
+            const key =
+              d.getFullYear() +
+              "-" +
+              (d.getMonth() + 1) +
+              "-" +
+              d.getDate() +
+              " " +
+              d.getHours() +
+              ":" +
+              String(d.getMinutes()).padStart(2, "0");
+            mins.push(key);
+            mapEn.set(key, 0);
+            mapEx.set(key, 0);
+          }
+          for (const ev of events) {
+            const d = new Date(ev.ts);
+            const key =
+              d.getFullYear() +
+              "-" +
+              (d.getMonth() + 1) +
+              "-" +
+              d.getDate() +
+              " " +
+              d.getHours() +
+              ":" +
+              String(d.getMinutes()).padStart(2, "0");
+            if (mapEn.has(key)) {
+              const dir = (ev.direction || "").toString().toUpperCase();
+              if (dir === "ENTER") mapEn.set(key, mapEn.get(key) + 1);
+              else if (dir === "EXIT") mapEx.set(key, mapEx.get(key) + 1);
+            }
+          }
+          return {
+            labels: mins.map((k) => k.slice(-5)), // HH:MM
+            enters: mins.map((k) => mapEn.get(k)),
+            exits: mins.map((k) => mapEx.get(k)),
+          };
+        }
+
+        function renderEventsTable(events) {
+          tableBody.innerHTML = "";
+          for (const ev of events.slice(0, 50)) {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+          <td style="padding:6px;border-bottom:1px solid #222">${fmtTime(
+            ev.ts
+          )}</td>
+          <td style="padding:6px;border-bottom:1px solid #222">${ev.direction}</td>
+          <td style="padding:6px;border-bottom:1px solid #222">${
+            ev.track_id ?? ""
+          }</td>`;
+            tableBody.appendChild(tr);
+          }
+        }
+
+        async function fetchEvents() {
+          try {
+            const r = await fetch(EVENTS_URL);
+            const arr = await r.json();
+            if (Array.isArray(arr)) {
+              // KPI 15 minutes
+              const f15 = Date.now() - 15 * 60 * 1000;
+              let e15 = 0,
+                x15 = 0;
+              for (const ev of arr) {
+                const t = new Date(ev.ts).getTime();
+                if (t >= f15) {
+                  const dir = (ev.direction || "").toUpperCase();
+                  if (dir === "ENTER") e15++;
+                  else if (dir === "EXIT") x15++;
+                }
+              }
+              elEn.textContent = e15;
+              elEx.textContent = x15;
+              elNet.textContent = e15 - x15;
+
+              // Chart data (last 60m)
+              const g = groupPerMinute(arr);
+              chart.data.labels = g.labels;
+              chart.data.datasets[0].data = g.enters;
+              chart.data.datasets[1].data = g.exits;
+              chart.update();
+
+              // Table
+              renderEventsTable(arr);
+            }
+          } catch (e) {
+            console.warn("events error", e);
+          }
+        }
+
+        // initial & intervals
+        fetchLive();
+        fetchEvents();
+        setInterval(fetchLive, 3000);
+        setInterval(fetchEvents, 12000);
+      })();
+    </script>
+  </body>
+</html>

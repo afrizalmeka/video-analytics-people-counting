@@ -50,8 +50,8 @@ CREATE TABLE IF NOT EXISTS area_events (
     stream_id  INTEGER NOT NULL REFERENCES streams(stream_id) ON DELETE CASCADE,
     area_id    INTEGER NOT NULL REFERENCES areas(area_id) ON DELETE CASCADE,
     track_id   BIGINT REFERENCES tracks(track_id) ON DELETE SET NULL,
-    ts         TIMESTAMPTZ NOT NULL,
-    direction  TEXT NOT NULL CHECK (direction IN ('enter','exit'))
+    ts         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    direction  TEXT NOT NULL CHECK (direction IN ('ENTER','EXIT'))
 );
 CREATE INDEX IF NOT EXISTS idx_area_events_ts ON area_events(ts);
 
@@ -68,5 +68,14 @@ CREATE TABLE IF NOT EXISTS area_counts (
         UNIQUE (stream_id, area_id, window_start, window_end)
 );
 CREATE INDEX IF NOT EXISTS idx_area_counts_window ON area_counts(area_id, window_start, window_end);
+
+-- ========== area_live ==========
+CREATE TABLE IF NOT EXISTS area_live (
+    stream_id      INTEGER NOT NULL REFERENCES streams(stream_id) ON DELETE CASCADE,
+    area_id        INTEGER NOT NULL REFERENCES areas(area_id)   ON DELETE CASCADE,
+    current_inside INTEGER NOT NULL DEFAULT 0,
+    updated_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (stream_id, area_id)
+);
 
 COMMIT;
